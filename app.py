@@ -154,7 +154,7 @@ def match_winner(team1, team2):
     power1 = team_power_rf[team1]
     power2 = team_power_rf[team2]
     diff = power1 - power2
-    prob1 = 1 / (1 + np.exp(-diff / 15))
+    prob1 = 1 / (1 + np.exp(-diff / 35))
     return team1 if random.random() < prob1 else team2
 
 def simulate_tournament():
