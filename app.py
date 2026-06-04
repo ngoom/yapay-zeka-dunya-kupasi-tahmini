@@ -73,7 +73,13 @@ konfederasyon_mapping = {
 
 df['Konfederasyon'] = df['Takim'].map(konfederasyon_mapping).fillna('UEFA')
 
-konfederasyon_zorluk = {'UEFA': 1.0, 'CONMEBOL': 0.98, 'CAF': 0.85, 'CONCACAF': 0.70, 'AFC': 0.55}
+konfederasyon_zorluk = {
+    'UEFA': 1.00,      
+    'CONMEBOL': 0.92,  
+    'CAF': 0.85,       
+    'CONCACAF': 0.65,  
+    'AFC': 0.50        
+}
 df['Zorluk_Katsayisi'] = df['Konfederasyon'].map(konfederasyon_zorluk)
 guclu_afrika = ['Fas', 'Senegal', 'Misir', 'Cezayir', 'Gana']
 df.loc[df['Takim'].isin(guclu_afrika), 'Zorluk_Katsayisi'] = 0.90
@@ -154,7 +160,7 @@ def match_winner(team1, team2):
     power1 = team_power_rf[team1]
     power2 = team_power_rf[team2]
     diff = power1 - power2
-    prob1 = 1 / (1 + np.exp(-diff / 35))
+    prob1 = 1 / (1 + np.exp(-diff / 25))
     return team1 if random.random() < prob1 else team2
 
 def simulate_tournament():
