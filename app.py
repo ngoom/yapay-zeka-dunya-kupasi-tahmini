@@ -75,7 +75,7 @@ df['Konfederasyon'] = df['Takim'].map(konfederasyon_mapping).fillna('UEFA')
 
 konfederasyon_zorluk = {
     'UEFA': 1.00,      
-    'CONMEBOL': 0.85,  
+    'CONMEBOL': 0.90,  
     'CAF': 0.70,       
     'CONCACAF': 0.55,  
     'AFC': 0.40       
@@ -160,7 +160,7 @@ def match_winner(team1, team2):
     power1 = team_power_rf[team1]
     power2 = team_power_rf[team2]
     diff = power1 - power2
-    prob1 = 1 / (1 + np.exp(-diff / 45))
+    prob1 = 1 / (1 + np.exp(-diff / 40))
     return team1 if random.random() < prob1 else team2
 
 def simulate_tournament():
