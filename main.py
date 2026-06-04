@@ -2,104 +2,94 @@ import pandas as pd
 import numpy as np
 import random
 from collections import Counter
-import os
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import r2_score, mean_absolute_error
+import requests
+from io import StringIO
 
 # ============================================
-# 1. VERİYİ YÜKLE
+# 1. VERİYİ GITHUB'DAN DOĞRUDAN YÜKLE
 # ============================================
 
-# CSV dosyasını oku (kendi dosya yolunuzu yazın)
-dosya_yolu = "worldcup_data.csv"  # veya "C:/.../worldcup_data.csv"
-df = pd.read_csv(dosya_yolu, encoding='utf-8')
+# ⭐ BU SENİN DOĞRU LİNKİN ⭐
+url = "https://raw.githubusercontent.com/ngoom/yapay-zeka-dunya-kupasi-tahmini/refs/heads/main/worldcup_data.txt"
 
 print("=" * 70)
-print("VERİ BAŞARIYLA OKUNDU!")
+print("📥 Veri GitHub'dan indiriliyor...")
 print("=" * 70)
-print(f"Toplam {len(df)} takım var\n")
+
+try:
+    response = requests.get(url)
+    response.raise_for_status()  # HTTP hatası varsa fırlat
+    df = pd.read_csv(StringIO(response.text), encoding='utf-8')
+    print("✅ Veri başarıyla GitHub'dan yüklendi!")
+except Exception as e:
+    print(f"❌ Hata: Veri yüklenemedi! {e}")
+    print("📂 Lütfen URL'yi ve internet bağlantınızı kontrol edin.")
+    exit()
+
+print(f"📊 Toplam {len(df)} takım var")
+print(f"📋 Sütunlar: {df.columns.tolist()}\n")
 
 # ============================================
-# 2. KONFEDERASYON VE ZORLUK KATSAYISI EKLE
+# 2. KONFEDERASYON BİLGİSİNİ EKLE
 # ============================================
 
-# Konfederasyonları elle tanımla (CSV'de yoksa)
 konfederasyon_mapping = {
-    'Türkiye': 'UEFA', 'Fransa': 'UEFA', 'İspanya': 'UEFA', 'İngiltere': 'UEFA',
+    'Türkiye': 'UEFA', 'Fransa': 'UEFA', 'Ispanya': 'UEFA', 'Ingiltere': 'UEFA',
     'Almanya': 'UEFA', 'Hollanda': 'UEFA', 'Portekiz': 'UEFA', 'Belçika': 'UEFA',
-    'İsviçre': 'UEFA', 'Hırvatistan': 'UEFA', 'İsveç': 'UEFA', 'Danimarka': 'UEFA',
-    'Polonya': 'UEFA', 'Çekya': 'UEFA', 'İskoçya': 'UEFA', 'Avusturya': 'UEFA',
-    'Norveç': 'UEFA', 'Bosna Hersek': 'UEFA', 'Rusya': 'UEFA', 'Ukrayna': 'UEFA',
-    'Sırbistan': 'UEFA', 'Galler': 'UEFA', 'Finlandiya': 'UEFA', 'Slovakya': 'UEFA',
+    'Isviçre': 'UEFA', 'Hirvatistan': 'UEFA', 'Isveç': 'UEFA', 'Danimarka': 'UEFA',
+    'Polonya': 'UEFA', 'Çekya': 'UEFA', 'Iskoçya': 'UEFA', 'Avusturya': 'UEFA',
+    'Norveç': 'UEFA', 'Bosna Hersek': 'UEFA', 'Galler': 'UEFA', 'Sırbistan': 'UEFA',
     'Arjantin': 'CONMEBOL', 'Brezilya': 'CONMEBOL', 'Uruguay': 'CONMEBOL',
     'Kolombiya': 'CONMEBOL', 'Ekvador': 'CONMEBOL', 'Paraguay': 'CONMEBOL',
-    'Venezuela': 'CONMEBOL', 'Peru': 'CONMEBOL', 'Şili': 'CONMEBOL',
-    'Fas': 'CAF', 'Senegal': 'CAF', 'Mısır': 'CAF', 'Cezayir': 'CAF',
-    'Tunus': 'CAF', 'Kamerun': 'CAF', 'Gana': 'CAF', 'Fildişi Sahili': 'CAF',
-    'Kongo DC': 'CAF', 'Güney Afrika': 'CAF', 'Yeşil Burun': 'CAF', 'Nijerya': 'CAF',
+    'Fas': 'CAF', 'Senegal': 'CAF', 'Misir': 'CAF', 'Cezayir': 'CAF',
+    'Tunus': 'CAF', 'Gana': 'CAF', 'Fildisi_Sahili': 'CAF', 'Kongo_DC': 'CAF',
+    'Güney Afrika': 'CAF', 'Yeşil Burun': 'CAF',
     'Meksika': 'CONCACAF', 'ABD': 'CONCACAF', 'Kanada': 'CONCACAF', 'Panama': 'CONCACAF',
-    'Haiti': 'CONCACAF', 'Curaçao': 'CONCACAF', 'Kosta Rika': 'CONCACAF',
-    'Japonya': 'AFC', 'Güney Kore': 'AFC', 'İran': 'AFC', 'Suudi Arabistan': 'AFC',
+    'Haiti': 'CONCACAF', 'Curaçao': 'CONCACAF',
+    'Japonya': 'AFC', 'Güney Kore': 'AFC', 'Iran': 'AFC', 'Suudi_Arabistan': 'AFC',
     'Avustralya': 'AFC', 'Katar': 'AFC', 'Irak': 'AFC', 'Özbekistan': 'AFC', 'Ürdün': 'AFC'
 }
 
-df['Konfederasyon'] = df['Takim'].map(konfederasyon_mapping)
+df['Konfederasyon'] = df['Takim'].map(konfederasyon_mapping).fillna('UEFA')
 
-# Zorluk katsayılarını tanımla
-konfederasyon_zorluk = {
-    'UEFA': 1.0,
-    'CONMEBOL': 0.98,
-    'CAF': 0.85,
-    'CONCACAF': 0.70,
-    'AFC': 0.55
-}
-df['Zorluk_Katsayisi'] = df['Konfederasyon'].map(konfederasyon_zorluk).fillna(0.70)
+konfederasyon_zorluk = {'UEFA': 1.0, 'CONMEBOL': 0.98, 'CAF': 0.85, 'CONCACAF': 0.70, 'AFC': 0.55}
+df['Zorluk_Katsayisi'] = df['Konfederasyon'].map(konfederasyon_zorluk)
 
-# Güçlü Afrika takımları için katsayıyı artır
-guclu_afrika = ['Fas', 'Senegal', 'Mısır', 'Cezayir', 'Fildişi Sahili', 'Gana', 'Kongo DC', 'Tunus']
+guclu_afrika = ['Fas', 'Senegal', 'Misir', 'Cezayir', 'Gana']
 df.loc[df['Takim'].isin(guclu_afrika), 'Zorluk_Katsayisi'] = 0.90
 
-print("KONFEDERASYON BİLGİSİ EKLENDİ ✓")
-print(f"UEFA: {len(df[df['Konfederasyon']=='UEFA'])} takım")
-print(f"CONMEBOL: {len(df[df['Konfederasyon']=='CONMEBOL'])} takım")
-print(f"CAF: {len(df[df['Konfederasyon']=='CAF'])} takım")
-print(f"CONCACAF: {len(df[df['Konfederasyon']=='CONCACAF'])} takım")
-print(f"AFC: {len(df[df['Konfederasyon']=='AFC'])} takım\n")
+print("✅ KONFEDERASYON BİLGİSİ EKLENDI\n")
 
 # ============================================
 # 3. RANDOM FOREST MODELİ
 # ============================================
 
 def basari_to_score(basari):
-    if basari == 1: return 100   # Şampiyon
-    elif basari == 2: return 80  # Final
-    elif basari == 3: return 60  # Yarı final
-    elif basari == 4: return 40  # Çeyrek final
-    elif basari == 5: return 20  # Son 16
-    else: return 5               # Katılamadı
+    if basari == 1: return 100
+    elif basari == 2: return 80
+    elif basari == 3: return 60
+    elif basari == 4: return 40
+    elif basari == 5: return 20
+    else: return 5
 
 df['Hedef_Basari'] = df['Basari_2022'].apply(basari_to_score)
 
-# Özellikler (X)
 feature_cols = ['FIFA_Sirasi', 'Son10_Galibiyet', 'Son10_Beraberlik',
                 'Ortalama_Gol_At', 'Ortalama_Gol_Ye', 'Piyasa_Değeri_Milyon',
                 'Kadro_Yas', 'Ev_Sahibi', 'Zorluk_Katsayisi']
 
-# Konfederasyon one-hot encoding
 conf_dummies = pd.get_dummies(df['Konfederasyon'], prefix='Konf')
 X = pd.concat([df[feature_cols], conf_dummies], axis=1)
 y = df['Hedef_Basari']
 
-# Eğitim/test ayır
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Random Forest modeli
 rf = RandomForestRegressor(n_estimators=100, random_state=42, max_depth=5)
 rf.fit(X_train, y_train)
 
-# Model performansı
 y_pred = rf.predict(X_test)
 print("=" * 70)
 print("RANDOM FOREST MODEL PERFORMANSI")
@@ -107,7 +97,6 @@ print("=" * 70)
 print(f"R² skoru: {r2_score(y_test, y_pred):.3f}")
 print(f"Ortalama Mutlak Hata: {mean_absolute_error(y_test, y_pred):.2f} puan\n")
 
-# Takımların güç puanları
 df['RF_Guc_Skoru'] = rf.predict(X).round(0).clip(0, 100)
 
 print("📊 EN GÜÇLÜ 15 TAKIM (Random Forest Tahmini):")
@@ -115,11 +104,11 @@ print(df[['Takim', 'RF_Guc_Skoru', 'Basari_2022']].sort_values('RF_Guc_Skoru', a
 print("")
 
 # ============================================
-# 4. MAÇ SİMÜLASYONU (RF PUANLARI İLE)
+# 4. TURNUVAYI SİMÜLE ET
 # ============================================
 
 team_power_rf = dict(zip(df['Takim'], df['RF_Guc_Skoru']))
-team_group = dict(zip(df['Takim'], df['Grup']))   # ← HATA DÜZELTİLDİ! bu satır eklendi
+team_group = dict(zip(df['Takim'], df['Grup']))
 
 def match_winner_rf(team1, team2):
     power1 = team_power_rf[team1]
@@ -144,16 +133,19 @@ def simulate_tournament_rf():
     knockout_teams = group_winners + group_runners_up
     random.shuffle(knockout_teams)
 
+    # Son 32 -> Son 16
     round_16 = []
     for i in range(0, len(knockout_teams)-1, 2):
         if i+1 < len(knockout_teams):
             round_16.append(match_winner_rf(knockout_teams[i], knockout_teams[i+1]))
 
+    # Son 16 -> Çeyrek final
     quarter_final = []
     for i in range(0, len(round_16)-1, 2):
         if i+1 < len(round_16):
             quarter_final.append(match_winner_rf(round_16[i], round_16[i+1]))
 
+    # Çeyrek final -> Yarı final
     semi_final = []
     for i in range(0, len(quarter_final)-1, 2):
         if i+1 < len(quarter_final):
@@ -162,19 +154,17 @@ def simulate_tournament_rf():
     if len(semi_final) < 2:
         return semi_final[0] if semi_final else "Hata"
 
+    # Yarı final -> Final
     finalists = []
     for i in range(0, len(semi_final)-1, 2):
         if i+1 < len(semi_final):
             finalists.append(match_winner_rf(semi_final[i], semi_final[i+1]))
 
+    # FINAL
     if len(finalists) >= 2:
         return match_winner_rf(finalists[0], finalists[1])
     else:
         return finalists[0] if finalists else "Hata"
-
-# ============================================
-# 5. 1000 SİMÜLASYON
-# ============================================
 
 print("=" * 70)
 print("1000 SİMÜLASYON (Random Forest Güç Puanları ile)")
